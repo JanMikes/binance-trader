@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Order History - Binance Grid Trading Bot{% endblock %}
+
+{% block body %}
+<div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">All Orders ({{ orders|length }})</h2>
+
+    {% if orders|length > 0 %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left">Created</th>
+                    <th class="px-4 py-2 text-left">Side</th>
+                    <th class="px-4 py-2 text-right">Price</th>
+                    <th class="px-4 py-2 text-right">Quantity</th>
+                    <th class="px-4 py-2 text-left">Status</th>
+                    <th class="px-4 py-2 text-left">Client ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2 text-sm">{{ order.createdAt|date('Y-m-d H:i:s') }}</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 rounded text-sm {% if order.side == 'BUY' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ order.side }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-right">${{ order.price|number_format(2) }}</td>
+                    <td class="px-4 py-2 text-right">{{ order.quantity|number_format(4) }}</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 rounded text-sm
+                            {% if order.status == 'FILLED' %}bg-green-100 text-green-800
+                            {% elseif order.status == 'CANCELED' %}bg-gray-100 text-gray-800
+                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-sm font-mono">{{ order.clientOrderId|slice(0, 40) }}...</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">No orders found</p>
+    {% endif %}
+</div>
+{% endblock %}

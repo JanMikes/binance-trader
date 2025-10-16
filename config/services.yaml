@@ -1,0 +1,41 @@
+parameters:
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Make classes in src/ available to be used as services
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # Controllers are imported separately to make sure services can be injected
+    # as action arguments even if you don't extend any base controller class
+    App\Controller\:
+        resource: '../src/Controller/'
+        tags: ['controller.service_arguments']
+
+    # Command classes
+    App\Command\:
+        resource: '../src/Command/'
+        tags: ['console.command']
+
+    # Binance API Client configuration
+    App\Service\Binance\BinanceApiClient:
+        arguments:
+            $httpClient: '@binance.client'
+            $apiKey: '%binance.api_key%'
+            $apiSecret: '%binance.api_secret%'
+            $useTestnet: '%binance.use_testnet%'
+            $testnetUrl: '%binance.base_url_testnet%'
+            $productionUrl: '%binance.base_url_production%'
+
+    # Orchestrator configuration
+    App\Service\Orchestrator:
+        arguments:
+            $strategy: '@App\Service\Strategy\GridStrategy'
+            $checkIntervalSeconds: '%bot.check_interval_seconds%'

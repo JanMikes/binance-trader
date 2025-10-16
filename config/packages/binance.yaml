@@ -1,0 +1,8 @@
+parameters:
+    binance.api_key: '%env(BINANCE_API_KEY)%'
+    binance.api_secret: '%env(BINANCE_API_SECRET)%'
+    binance.use_testnet: '%env(bool:BINANCE_USE_TESTNET)%'
+    binance.base_url_testnet: 'https://testnet.binance.vision'
+    binance.base_url_production: 'https://api.binance.com'
+    binance.rate_limit_per_minute: 1200
+    bot.check_interval_seconds: '%env(int:BOT_CHECK_INTERVAL_SECONDS)%'

@@ -1,0 +1,71 @@
+{
+    "name": "binance-trader/grid-bot",
+    "type": "project",
+    "description": "Binance Grid Trading Bot with deterministic order management",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.4",
+        "ext-ctype": "*",
+        "ext-iconv": "*",
+        "ext-pcntl": "*",
+        "doctrine/doctrine-bundle": "^2.13",
+        "doctrine/doctrine-migrations-bundle": "^3.3",
+        "doctrine/orm": "^3.3",
+        "symfony/console": "7.2.*",
+        "symfony/dotenv": "7.2.*",
+        "symfony/flex": "^2",
+        "symfony/framework-bundle": "7.2.*",
+        "symfony/http-client": "7.2.*",
+        "symfony/runtime": "7.2.*",
+        "symfony/twig-bundle": "7.2.*",
+        "symfony/yaml": "7.2.*",
+        "twig/extra-bundle": "^3.15",
+        "twig/twig": "^3.15"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-doctrine": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "symfony/flex": true,
+            "symfony/runtime": true
+        },
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "auto-scripts": {
+            "cache:clear": "symfony-cmd",
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        },
+        "post-install-cmd": [
+            "@auto-scripts"
+        ],
+        "post-update-cmd": [
+            "@auto-scripts"
+        ],
+        "phpstan": "phpstan analyse src/ --level=8"
+    },
+    "conflict": {
+        "symfony/symfony": "*"
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false,
+            "require": "7.2.*"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

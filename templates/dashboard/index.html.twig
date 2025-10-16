@@ -1,0 +1,152 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-gray-500 text-sm font-semibold">Current Price</h3>
+        <p class="text-2xl font-bold">${{ current_price|number_format(2) }}</p>
+    </div>
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-gray-500 text-sm font-semibold">Position</h3>
+        <p class="text-2xl font-bold">{{ position.base_qty|number_format(4) }} {{ basket.symbol|slice(0, -4) }}</p>
+    </div>
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-gray-500 text-sm font-semibold">Total P&L</h3>
+        <p class="text-2xl font-bold {% if position.total_pnl >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            ${{ position.total_pnl|number_format(2) }}
+            <span class="text-sm">({{ position.roi_percent|number_format(2) }}%)</span>
+        </p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-gray-500 text-sm font-semibold mb-2">Realized P&L</h3>
+        <p class="text-xl font-bold {% if position.realized_pnl >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            ${{ position.realized_pnl|number_format(2) }}
+        </p>
+    </div>
+    <div class="bg-white p-4 rounded shadow">
+        <h3 class="text-gray-500 text-sm font-semibold mb-2">Unrealized P&L</h3>
+        <p class="text-xl font-bold {% if position.unrealized_pnl >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            ${{ position.unrealized_pnl|number_format(2) }}
+        </p>
+    </div>
+</div>
+
+<div class="bg-white p-4 rounded shadow mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Open Orders ({{ open_orders|length }})</h2>
+        <button onclick="document.getElementById('emergency-modal').classList.remove('hidden')"
+                class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">
+            Emergency Close All
+        </button>
+    </div>
+
+    {% if open_orders|length > 0 %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left">Client ID</th>
+                    <th class="px-4 py-2 text-left">Side</th>
+                    <th class="px-4 py-2 text-right">Price</th>
+                    <th class="px-4 py-2 text-right">Quantity</th>
+                    <th class="px-4 py-2 text-left">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in open_orders %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2 text-sm font-mono">{{ order.clientOrderId|slice(0, 30) }}...</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 rounded text-sm {% if order.side == 'BUY' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ order.side }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-right">${{ order.price|number_format(2) }}</td>
+                    <td class="px-4 py-2 text-right">{{ order.quantity|number_format(4) }}</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">No open orders</p>
+    {% endif %}
+</div>
+
+<div class="bg-white p-4 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">Recent Filled Orders (Last 20)</h2>
+
+    {% if filled_orders|length > 0 %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left">Time</th>
+                    <th class="px-4 py-2 text-left">Side</th>
+                    <th class="px-4 py-2 text-right">Price</th>
+                    <th class="px-4 py-2 text-right">Quantity</th>
+                    <th class="px-4 py-2 text-left">Client ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in filled_orders %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2 text-sm">{{ order.filledAt|date('Y-m-d H:i:s') }}</td>
+                    <td class="px-4 py-2">
+                        <span class="px-2 py-1 rounded text-sm {% if order.side == 'BUY' %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ order.side }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2 text-right">${{ order.price|number_format(2) }}</td>
+                    <td class="px-4 py-2 text-right">{{ order.quantity|number_format(4) }}</td>
+                    <td class="px-4 py-2 text-sm font-mono">{{ order.clientOrderId|slice(0, 30) }}...</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500">No filled orders yet</p>
+    {% endif %}
+</div>
+
+<!-- Emergency Close Modal -->
+<div id="emergency-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded shadow-lg max-w-md">
+        <h2 class="text-xl font-bold mb-4 text-red-600">⚠️ Emergency Close All Positions</h2>
+        <p class="mb-4">This will:</p>
+        <ul class="list-disc ml-6 mb-4">
+            <li>Cancel ALL open orders</li>
+            <li>Close entire position with LIMIT order</li>
+            <li>Use price 3% below current market</li>
+        </ul>
+        <p class="mb-4 font-bold text-red-600">This action cannot be undone!</p>
+
+        <form method="POST" action="{{ path('trading_close_all') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('close-all') }}">
+            <div class="flex gap-4">
+                <button type="button" onclick="document.getElementById('emergency-modal').classList.add('hidden')"
+                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold">
+                    Confirm Close All
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="mt-4 text-center text-sm text-gray-500">
+    Page auto-refreshes every 10 seconds
+</div>
+{% endblock %}
