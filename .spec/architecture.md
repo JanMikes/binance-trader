@@ -4,7 +4,7 @@
 
 ### Technology Stack
 - **Framework:** Symfony 7.x
-- **Database:** PostgreSQL 16
+- **Database:** PostgreSQL 17
 - **Containerization:** Docker + Docker Compose
 - **Frontend:** Twig templates with Tailwind CSS
 - **API Client:** Symfony HTTP Client for Binance API
@@ -634,7 +634,7 @@ volumes:
 ### docker/php/Dockerfile
 
 ```dockerfile
-FROM php:8.3-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 # Install system dependencies
 RUN apk add --no-cache \
