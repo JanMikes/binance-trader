@@ -1,51 +1,53 @@
 -- Initialize bot configuration for testnet
--- Run this after migrations: docker-compose exec postgres psql -U trader -d binance_trader -f /app/scripts/init_testnet_basket.sql
+-- Run this after migrations: cat scripts/init_testnet_basket.sql | docker-compose exec -T postgres psql -U postgres -d trader
 
 -- Clear existing data (testnet only!)
-TRUNCATE TABLE fills, orders, baskets, account_snapshots, bot_config RESTART IDENTITY CASCADE;
+TRUNCATE TABLE fills, orders, baskets, account_snapshots, bot_config CASCADE;
 
 -- Insert bot configuration
-INSERT INTO bot_config (key, value, created_at, updated_at) VALUES
+INSERT INTO bot_config (id, key, value, updated_at) VALUES
 -- Trading parameters
-('symbol', '"SOLUSDC"', NOW(), NOW()),
-('anchor_price_P0', '100.0', NOW(), NOW()),
-('base_capital_usdc', '1000.0', NOW(), NOW()),
+(gen_random_uuid(), 'symbol', '"SOLUSDC"', NOW()),
+(gen_random_uuid(), 'anchor_price_P0', '100.0', NOW()),
+(gen_random_uuid(), 'base_capital_usdc', '1000.0', NOW()),
 
 -- Grid levels configuration
-('levels_pct', '[-5.0, -10.0, -15.0, -20.0, -25.0, -30.0]', NOW(), NOW()),
-('alloc_weights', '[0.08, 0.12, 0.15, 0.18, 0.22, 0.25]', NOW(), NOW()),
+(gen_random_uuid(), 'levels_pct', '[-5.0, -10.0, -15.0, -20.0, -25.0, -30.0]', NOW()),
+(gen_random_uuid(), 'alloc_weights', '[0.08, 0.12, 0.15, 0.18, 0.22, 0.25]', NOW()),
 
 -- Take-profit parameters
-('tp_start_pct', '1.2', NOW(), NOW()),
-('tp_step_pct', '0.15', NOW(), NOW()),
-('tp_min_pct', '0.3', NOW(), NOW()),
+(gen_random_uuid(), 'tp_start_pct', '1.2', NOW()),
+(gen_random_uuid(), 'tp_step_pct', '0.15', NOW()),
+(gen_random_uuid(), 'tp_min_pct', '0.3', NOW()),
 
 -- Exit distribution
-('exit_tp1_portion', '0.40', NOW(), NOW()),
-('exit_tp2_portion', '0.35', NOW(), NOW()),
-('exit_trail_portion', '0.25', NOW(), NOW()),
-('trailing_callback_pct', '0.8', NOW(), NOW()),
+(gen_random_uuid(), 'exit_tp1_portion', '0.40', NOW()),
+(gen_random_uuid(), 'exit_tp2_portion', '0.35', NOW()),
+(gen_random_uuid(), 'exit_trail_portion', '0.25', NOW()),
+(gen_random_uuid(), 'trailing_callback_pct', '0.8', NOW()),
 
 -- Order placement strategy
-('place_mode', '"only_next_k"', NOW(), NOW()),
-('k_next', '2', NOW(), NOW()),
+(gen_random_uuid(), 'place_mode', '"only_next_k"', NOW()),
+(gen_random_uuid(), 'k_next', '2', NOW()),
 
 -- Safety settings
-('hard_stop_mode', '"none"', NOW(), NOW()),
-('hard_stop_threshold_pct', '-35.0', NOW(), NOW()),
-('extend_zone_trigger_pct', '-30.0', NOW(), NOW()),
+(gen_random_uuid(), 'hard_stop_mode', '"none"', NOW()),
+(gen_random_uuid(), 'hard_stop_threshold_pct', '-35.0', NOW()),
+(gen_random_uuid(), 'extend_zone_trigger_pct', '-30.0', NOW()),
 
 -- Reanchor settings
-('reanchor_on_close', 'true', NOW(), NOW()),
-('anchor_ttl_hours', '24', NOW(), NOW()),
+(gen_random_uuid(), 'reanchor_on_close', 'true', NOW()),
+(gen_random_uuid(), 'anchor_ttl_hours', '24', NOW()),
 
 -- Operational parameters
-('orchestrator_cycle_sec', '10', NOW(), NOW())
+(gen_random_uuid(), 'orchestrator_cycle_sec', '10', NOW()),
+(gen_random_uuid(), 'system_status', '{"status": "running"}', NOW())
 ;
 
 -- Create initial basket for testnet
-INSERT INTO baskets (symbol, anchor_price, status, config, started_at, created_at, updated_at) VALUES
+INSERT INTO baskets (id, symbol, anchor_price, status, config, created_at) VALUES
 (
+    gen_random_uuid(),
     'SOLUSDC',
     100.0,
     'active',
@@ -69,8 +71,6 @@ INSERT INTO baskets (symbol, anchor_price, status, config, started_at, created_a
         "reanchor_on_close": true,
         "anchor_ttl_hours": 24
     }'::jsonb,
-    NOW(),
-    NOW(),
     NOW()
 );
 
@@ -79,4 +79,4 @@ SELECT 'Bot configuration initialized:' as status;
 SELECT key, value FROM bot_config ORDER BY key;
 
 SELECT 'Initial basket created:' as status;
-SELECT id, symbol, anchor_price, status, started_at FROM baskets;
+SELECT id, symbol, anchor_price, status, created_at FROM baskets;

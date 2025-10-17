@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Repository\BasketRepository;
 use App\Repository\OrderRepository;
 use App\Service\Binance\BinanceApiClient;
+use App\Service\SystemStatusService;
 use App\Service\Trading\PositionCalculator;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +19,8 @@ class DashboardController extends AbstractController
         private readonly BasketRepository $basketRepository,
         private readonly OrderRepository $orderRepository,
         private readonly BinanceApiClient $binanceApi,
-        private readonly PositionCalculator $positionCalculator
+        private readonly PositionCalculator $positionCalculator,
+        private readonly SystemStatusService $systemStatus
     ) {
     }
 
@@ -53,6 +55,8 @@ class DashboardController extends AbstractController
             'open_orders' => $openOrders,
             'filled_orders' => array_slice($filledOrders, 0, 20), // Last 20
             'position' => $positionSummary,
+            'system_status' => $this->systemStatus->getStatus(),
+            'is_running' => $this->systemStatus->isRunning(),
         ]);
     }
 

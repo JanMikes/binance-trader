@@ -9,7 +9,7 @@ use Psr\Log\LoggerInterface;
 class GridStrategy implements StrategyInterface
 {
     public function __construct(
-        private readonly LoggerInterface $logger // @phpstan-ignore-line - Used for future logging
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -23,7 +23,7 @@ class GridStrategy implements StrategyInterface
     {
         // Extract configuration
         $symbol = (string)$config['symbol'];
-        $basketId = (int)$state['basket_id'];
+        $basketId = (string)$state['basket_id'];
         $anchorPrice = (float)$config['anchor_price_P0'];
         $levelsPct = $config['levels_pct']; // array of drops
         $allocWeights = $config['alloc_weights']; // array of capital weights
@@ -45,6 +45,13 @@ class GridStrategy implements StrategyInterface
             $symbol,
             $basketId
         );
+
+        $this->logger->debug('Planned levels built', [
+            'levels_count' => count($levels),
+            'levels' => $levels,
+            'anchor_price' => $anchorPrice,
+            'max_capital' => $maxGridCapital,
+        ]);
 
         // Step 2: Calculate VWAP and filled levels
         $fillsHistory = $state['fills_history'] ?? [];
@@ -68,6 +75,16 @@ class GridStrategy implements StrategyInterface
         $kNext = (int)($config['k_next'] ?? 2);
         $availableQuote = (float)($state['available_quote_balance'] ?? 0);
 
+        $this->logger->debug('Determining BUY orders', [
+            'levels_count' => count($levels),
+            'filled_levels_count' => count($filledLevels),
+            'last_price' => $lastPrice,
+            'place_mode' => $placeMode,
+            'k_next' => $kNext,
+            'available_quote' => $availableQuote,
+            'max_capital' => $maxGridCapital,
+        ]);
+
         $buys = $this->determineBuyOrders(
             $levels,
             $filledLevels,
@@ -77,6 +94,11 @@ class GridStrategy implements StrategyInterface
             $availableQuote,
             $maxGridCapital
         );
+
+        $this->logger->debug('BUY orders determined', [
+            'buys_count' => count($buys),
+            'buys' => $buys,
+        ]);
 
         // Step 5: Determine SELL should-be orders
         $positionBaseQty = (float)($state['position_base_qty'] ?? 0);
@@ -96,7 +118,9 @@ class GridStrategy implements StrategyInterface
         }
 
         // Step 6: Check reanchor suggestion
-        $reanchorSuggested = $this->shouldReanchor($positionBaseQty, $config, $state);
+        // Only suggest reanchor if no position AND no BUY orders
+        $reanchorSuggested = count($buys) === 0 && count($sells) === 0
+            && $this->shouldReanchor($positionBaseQty, $config, $state);
 
         return [
             'buys' => $buys,
@@ -127,14 +151,15 @@ class GridStrategy implements StrategyInterface
         float $lotSize,
         float $minNotional,
         string $symbol,
-        int $basketId
+        string $basketId
     ): array {
         $levels = [];
         $n = count($levelsPct);
 
         for ($i = 0; $i < $n; $i++) {
-            $drop = $levelsPct[$i];
-            $price = $this->roundDown($anchorPrice * (1 - $drop), $tickSize);
+            // Convert percentage to decimal (e.g., -5.0 => -0.05)
+            $dropPct = $levelsPct[$i] / 100.0;
+            $price = $this->roundDown($anchorPrice * (1 + $dropPct), $tickSize);
             $quoteCap = $maxGridCapital * $allocWeights[$i];
             $qty = $this->roundDown($quoteCap / $price, $lotSize);
 
@@ -144,7 +169,7 @@ class GridStrategy implements StrategyInterface
                     'idx' => $i + 1,
                     'price' => $price,
                     'qty' => $qty,
-                    'clientId' => "BOT:{$symbol}:{$basketId}:B:" . ($i + 1),
+                    'clientId' => "{$symbol}_{$basketId}_B_" . ($i + 1),
                 ];
             }
         }
@@ -260,7 +285,7 @@ class GridStrategy implements StrategyInterface
         float $tickSize,
         float $lotSize,
         string $symbol,
-        int $basketId
+        string $basketId
     ): array {
         // Calculate dynamic TP
         $tpStart = (float)($config['tp_start_pct'] ?? 0.012);
@@ -291,7 +316,7 @@ class GridStrategy implements StrategyInterface
                 'type' => 'LIMIT',
                 'price' => $tp1Price,
                 'qty' => $q1,
-                'clientId' => "BOT:{$symbol}:{$basketId}:S:TP1",
+                'clientId' => "{$symbol}_{$basketId}_S_TP1",
             ];
         }
 
@@ -301,7 +326,7 @@ class GridStrategy implements StrategyInterface
                 'type' => 'LIMIT',
                 'price' => $tp2Price,
                 'qty' => $q2,
-                'clientId' => "BOT:{$symbol}:{$basketId}:S:TP2",
+                'clientId' => "{$symbol}_{$basketId}_S_TP2",
             ];
         }
 
@@ -315,7 +340,7 @@ class GridStrategy implements StrategyInterface
                 'type' => 'LIMIT',
                 'price' => $trailPrice,
                 'qty' => $q3,
-                'clientId' => "BOT:{$symbol}:{$basketId}:S:TRAIL",
+                'clientId' => "{$symbol}_{$basketId}_S_TRAIL",
             ];
         }
 

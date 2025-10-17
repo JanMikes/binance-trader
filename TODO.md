@@ -356,7 +356,6 @@ Current focus: Phase 9 - Testing on Binance testnet and finalizing documentation
 ### Environment Setup
 - [x] Create .env.local with testnet credentials (template created)
 - [x] Set BINANCE_USE_TESTNET=true (configured in .env.local)
-- [x] Set DB_PASSWORD (secure)
 - [x] Set APP_SECRET (random)
 - [ ] Set BOT_CHECK_INTERVAL_SECONDS=5 (or use default from Orchestrator config)
 

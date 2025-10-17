@@ -7,6 +7,7 @@ namespace App\Entity;
 use App\Repository\FillRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: FillRepository::class)]
 #[ORM\Table(name: 'fills')]
@@ -15,9 +16,8 @@ use Doctrine\ORM\Mapping as ORM;
 class Fill
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    #[ORM\Column(type: 'uuid', unique: true)]
+    private Uuid $id;
 
     #[ORM\ManyToOne(targetEntity: Order::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -47,10 +47,11 @@ class Fill
 
     public function __construct()
     {
+        $this->id = Uuid::v7();
         $this->executedAt = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int
+    public function getId(): Uuid
     {
         return $this->id;
     }

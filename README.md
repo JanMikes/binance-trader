@@ -307,7 +307,6 @@ Before going live with real funds:
 
 - [ ] Test thoroughly on testnet for at least 1 week
 - [ ] Set `BINANCE_USE_TESTNET=false` in production `.env.local`
-- [ ] Use strong `DB_PASSWORD` and `APP_SECRET`
 - [ ] Set up database backups (pg_dump cron job)
 - [ ] Configure monitoring and alerts
 - [ ] Enable HTTPS for dashboard (nginx SSL config)

@@ -476,7 +476,6 @@ If Binance doesn't support native trailing, simulate in orchestrator:
 ## Production Checklist
 
 - [ ] Set `BINANCE_USE_TESTNET=false` in production `.env.local`
-- [ ] Use strong `DB_PASSWORD` and `APP_SECRET`
 - [ ] Never commit `.env.local` with real credentials
 - [ ] Set up database backups (pg_dump cron job)
 - [ ] Monitor worker process (supervisor ensures restart)

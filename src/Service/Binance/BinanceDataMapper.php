@@ -77,6 +77,44 @@ class BinanceDataMapper
     }
 
     /**
+     * Extract symbol info (finds the symbol and extracts its filters)
+     * @param array<string, mixed> $exchangeInfo
+     * @return array{tick_size: float, lot_size: float, min_notional: float}
+     */
+    public function extractSymbolInfo(array $exchangeInfo, string $symbol): array
+    {
+        $symbolData = null;
+
+        // Find the symbol in the symbols array
+        if (isset($exchangeInfo['symbols'])) {
+            foreach ($exchangeInfo['symbols'] as $sym) {
+                if ($sym['symbol'] === $symbol) {
+                    $symbolData = $sym;
+                    break;
+                }
+            }
+        }
+
+        if ($symbolData === null) {
+            // Return defaults if symbol not found
+            return [
+                'tick_size' => 0.01,
+                'lot_size' => 0.01,
+                'min_notional' => 10.0,
+            ];
+        }
+
+        // Extract filters
+        $filters = $this->extractSymbolFilters($symbolData);
+
+        return [
+            'tick_size' => (float)$filters['tick_size'],
+            'lot_size' => (float)$filters['lot_size'],
+            'min_notional' => (float)$filters['min_notional'],
+        ];
+    }
+
+    /**
      * Extract exchange info filters (tick size, lot size, min notional)
      * @param array<string, mixed> $exchangeInfo
      * @return array{tick_size: string, lot_size: string, min_notional: string}

@@ -7,10 +7,12 @@ namespace App\Service\Trading;
 use App\Entity\Basket;
 use App\Repository\BasketRepository;
 use App\Repository\FillRepository;
+use App\Repository\OrderRepository;
 use App\Service\Binance\BinanceApiClient;
 use App\Service\Binance\BinanceException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Uid\Uuid;
 
 class EmergencyCloseService
 {
@@ -18,6 +20,7 @@ class EmergencyCloseService
         private readonly BinanceApiClient $binanceApi,
         private readonly FillRepository $fillRepository,
         private readonly BasketRepository $basketRepository,
+        private readonly OrderRepository $orderRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger
     ) {
@@ -27,9 +30,9 @@ class EmergencyCloseService
      * Close all positions for a basket
      * @return array{success: bool, message: string, canceled_count: int, exit_order_placed: bool}
      */
-    public function closeAllPositions(int $basketId, float $safetyMarginPercent = 0.03): array
+    public function closeAllPositions(Uuid $basketId, float $safetyMarginPercent = 0.03): array
     {
-        $basket = $this->basketRepository->findById($basketId);
+        $basket = $this->basketRepository->find($basketId);
 
         if ($basket === null) {
             return [
@@ -50,12 +53,25 @@ class EmergencyCloseService
             $canceledCount = 0;
 
             foreach ($openOrders as $order) {
+                $clientOrderId = (string)$order['clientOrderId'];
+
                 try {
-                    $this->binanceApi->cancelOrder($symbol, (string)$order['clientOrderId']);
+                    $this->binanceApi->cancelOrder($symbol, $clientOrderId);
                     $canceledCount++;
+
+                    // Update order status in database
+                    $orderEntity = $this->orderRepository->findByClientOrderId($clientOrderId);
+                    if ($orderEntity !== null) {
+                        $orderEntity->setStatus('CANCELED');
+                        $this->orderRepository->save($orderEntity, false); // Don't flush yet, we're in a transaction
+                    }
+
+                    $this->logger->info('Order canceled during emergency close', [
+                        'clientOrderId' => $clientOrderId,
+                    ]);
                 } catch (BinanceException $e) {
                     $this->logger->warning('Failed to cancel order during emergency close', [
-                        'clientOrderId' => $order['clientOrderId'],
+                        'clientOrderId' => $clientOrderId,
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -82,6 +98,9 @@ class EmergencyCloseService
 
                 if ($exitQty > 0) {
                     try {
+                        // Convert UUID to base58 for shorter clientOrderId
+                        $basketIdShort = $basketId->toBase58();
+
                         $this->binanceApi->placeOrder(
                             $symbol,
                             'SELL',
@@ -90,7 +109,7 @@ class EmergencyCloseService
                                 'price' => (string)$exitPrice,
                                 'quantity' => (string)$exitQty,
                                 'timeInForce' => 'GTC',
-                                'newClientOrderId' => "BOT:{$symbol}:{$basketId}:S:EMERGENCY",
+                                'newClientOrderId' => "{$symbol}_{$basketIdShort}_S_EMERGENCY",
                             ]
                         );
                         $exitOrderPlaced = true;

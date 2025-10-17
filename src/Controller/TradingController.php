@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Repository\BasketRepository;
+use App\Service\Trading\BinanceDataSyncService;
 use App\Service\Trading\EmergencyCloseService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,7 +16,8 @@ class TradingController extends AbstractController
 {
     public function __construct(
         private readonly BasketRepository $basketRepository,
-        private readonly EmergencyCloseService $emergencyCloseService
+        private readonly EmergencyCloseService $emergencyCloseService,
+        private readonly BinanceDataSyncService $dataSyncService
     ) {
     }
 
@@ -35,14 +37,29 @@ class TradingController extends AbstractController
             return $this->redirectToRoute('dashboard');
         }
 
-        $basketId = $basket->getId();
-        if ($basketId === null) {
-            $this->addFlash('error', 'Basket ID is null');
+        // Execute emergency close
+        $result = $this->emergencyCloseService->closeAllPositions($basket->getId());
+
+        if ($result['success']) {
+            $this->addFlash('success', $result['message']);
+        } else {
+            $this->addFlash('error', $result['message']);
+        }
+
+        return $this->redirectToRoute('dashboard');
+    }
+
+    #[Route('/trading/refresh', name: 'trading_refresh', methods: ['POST'])]
+    public function refresh(Request $request): Response
+    {
+        // Validate CSRF token
+        if (!$this->isCsrfTokenValid('refresh', (string)$request->request->get('_token'))) {
+            $this->addFlash('error', 'Invalid CSRF token');
             return $this->redirectToRoute('dashboard');
         }
 
-        // Execute emergency close
-        $result = $this->emergencyCloseService->closeAllPositions($basketId);
+        // Execute data sync
+        $result = $this->dataSyncService->syncActiveBasket();
 
         if ($result['success']) {
             $this->addFlash('success', $result['message']);

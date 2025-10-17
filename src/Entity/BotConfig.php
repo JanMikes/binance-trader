@@ -7,15 +7,15 @@ namespace App\Entity;
 use App\Repository\BotConfigRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: BotConfigRepository::class)]
 #[ORM\Table(name: 'bot_config')]
 class BotConfig
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    #[ORM\Column(type: 'uuid', unique: true)]
+    private Uuid $id;
 
     #[ORM\Column(type: Types::STRING, length: 100, unique: true)]
     private string $key;
@@ -31,10 +31,11 @@ class BotConfig
 
     public function __construct()
     {
+        $this->id = Uuid::v7();
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int
+    public function getId(): Uuid
     {
         return $this->id;
     }

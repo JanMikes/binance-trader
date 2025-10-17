@@ -2,20 +2,18 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: binance_trader
-      POSTGRES_USER: trader
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: trader
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trader"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - binance_net
 
   php:
     build:
@@ -23,18 +21,9 @@ services:
       dockerfile: docker/php/Dockerfile
     volumes:
       - .:/app
-    environment:
-      DATABASE_URL: postgresql://trader:${DB_PASSWORD:-changeme}@postgres:5432/binance_trader?serverVersion=17&charset=utf8
-      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
-      BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
-      BINANCE_USE_TESTNET: ${BINANCE_USE_TESTNET:-true}
-      APP_ENV: ${APP_ENV:-dev}
-      APP_SECRET: ${APP_SECRET:-change_this_secret_in_production}
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - binance_net
 
   nginx:
     build:
@@ -46,8 +35,6 @@ services:
       - .:/app
     depends_on:
       - php
-    networks:
-      - binance_net
 
   worker:
     build:
@@ -56,24 +43,19 @@ services:
     command: php bin/console app:trading-bot
     volumes:
       - .:/app
-    environment:
-      DATABASE_URL: postgresql://trader:${DB_PASSWORD:-changeme}@postgres:5432/binance_trader?serverVersion=17&charset=utf8
-      BINANCE_API_KEY: ${BINANCE_API_KEY:-}
-      BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
-      BINANCE_USE_TESTNET: ${BINANCE_USE_TESTNET:-true}
-      APP_ENV: ${APP_ENV:-prod}
-      APP_SECRET: ${APP_SECRET:-change_this_secret_in_production}
-      BOT_CHECK_INTERVAL_SECONDS: ${BOT_CHECK_INTERVAL_SECONDS:-5}
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - binance_net
+
+  adminer:
+    image: adminer:5
+    ports:
+      - "8000:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:
-
-networks:
-  binance_net:
-    driver: bridge

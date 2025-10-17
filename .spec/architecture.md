@@ -569,9 +569,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: binance_trader
-      POSTGRES_USER: trader
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: trader
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -590,7 +590,7 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgresql://trader:${DB_PASSWORD}@postgres:5432/binance_trader
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/trader
       BINANCE_API_KEY: ${BINANCE_API_KEY}
       BINANCE_API_SECRET: ${BINANCE_API_SECRET}
       BINANCE_USE_TESTNET: ${BINANCE_USE_TESTNET:-true}
@@ -617,7 +617,7 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgresql://trader:${DB_PASSWORD}@postgres:5432/binance_trader
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/trader
       BINANCE_API_KEY: ${BINANCE_API_KEY}
       BINANCE_API_SECRET: ${BINANCE_API_SECRET}
       BINANCE_USE_TESTNET: ${BINANCE_USE_TESTNET:-true}
@@ -720,9 +720,6 @@ server {
 ### .env.local.example
 
 ```bash
-# Database
-DB_PASSWORD=your_secure_password
-
 # Binance API
 BINANCE_API_KEY=your_api_key
 BINANCE_API_SECRET=your_api_secret

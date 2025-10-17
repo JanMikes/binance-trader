@@ -14,10 +14,14 @@
         "symfony/console": "7.2.*",
         "symfony/dotenv": "7.2.*",
         "symfony/flex": "^2",
+        "symfony/form": "7.2.*",
         "symfony/framework-bundle": "7.2.*",
         "symfony/http-client": "7.2.*",
+        "symfony/monolog-bundle": "^3.10",
         "symfony/runtime": "7.2.*",
+        "symfony/security-csrf": "7.2.*",
         "symfony/twig-bundle": "7.2.*",
+        "symfony/uid": "7.2.*",
         "symfony/yaml": "7.2.*",
         "twig/extra-bundle": "^3.15",
         "twig/twig": "^3.15"
@@ -61,6 +65,9 @@
         "symfony/symfony": "*"
     },
     "extra": {
+        "runtime": {
+            "dotenv_overload": true
+        },
         "symfony": {
             "allow-contrib": false,
             "require": "7.2.*"

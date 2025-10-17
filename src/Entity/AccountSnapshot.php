@@ -7,15 +7,15 @@ namespace App\Entity;
 use App\Repository\AccountSnapshotRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: AccountSnapshotRepository::class)]
 #[ORM\Table(name: 'account_snapshots')]
 class AccountSnapshot
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
-    private ?int $id = null;
+    #[ORM\Column(type: 'uuid', unique: true)]
+    private Uuid $id;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $timestamp;
@@ -31,10 +31,11 @@ class AccountSnapshot
 
     public function __construct()
     {
+        $this->id = Uuid::v7();
         $this->timestamp = new \DateTimeImmutable();
     }
 
-    public function getId(): ?int
+    public function getId(): Uuid
     {
         return $this->id;
     }

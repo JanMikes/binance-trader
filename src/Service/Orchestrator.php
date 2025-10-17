@@ -33,6 +33,7 @@ class Orchestrator
         private readonly BasketRepository $basketRepository,
         private readonly FillRepository $fillRepository,
         private readonly AccountSnapshotRepository $snapshotRepository,
+        private readonly SystemStatusService $systemStatus,
         private readonly LoggerInterface $logger,
         private readonly int $checkIntervalSeconds = 5
     ) {
@@ -51,8 +52,17 @@ class Orchestrator
             try {
                 $this->processCycle();
             } catch (\Throwable $e) {
-                $this->logger->error('Cycle error', [
+                $this->logger->error(sprintf(
+                    'Cycle error: %s (%s) at %s:%d',
+                    $e->getMessage(),
+                    get_class($e),
+                    $e->getFile(),
+                    $e->getLine()
+                ), [
                     'error' => $e->getMessage(),
+                    'exception_class' => get_class($e),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
                     'trace' => $e->getTraceAsString(),
                 ]);
             }
@@ -110,9 +120,29 @@ class Orchestrator
      */
     private function processBasket(Basket $basket): void
     {
+        $this->logger->debug('Starting to process basket', [
+            'basket_id' => $basket->getId(),
+            'symbol' => $basket->getSymbol(),
+        ]);
+
         try {
             $symbol = $basket->getSymbol();
             $config = $basket->getConfig();
+
+            // Add symbol to config (strategy expects it)
+            $config['symbol'] = $symbol;
+
+            // Map base_capital_usdc to max_grid_capital_quote if not set
+            if (!isset($config['max_grid_capital_quote']) && isset($config['base_capital_usdc'])) {
+                $config['max_grid_capital_quote'] = $config['base_capital_usdc'];
+            }
+
+            // Fetch exchange info for market parameters (cache this in production)
+            $exchangeInfo = $this->binanceApi->getExchangeInfo($symbol);
+            $symbolInfo = $this->dataMapper->extractSymbolInfo($exchangeInfo, $symbol);
+            $config['tick_size'] = $symbolInfo['tick_size'];
+            $config['lot_size'] = $symbolInfo['lot_size'];
+            $config['min_notional'] = $symbolInfo['min_notional'];
 
             // Step 1: Fetch state from Binance
             $accountInfo = $this->binanceApi->getAccountInfo();
@@ -141,8 +171,11 @@ class Orchestrator
             $positionQty = $totalBuyQty - $totalSellQty;
 
             // Step 2: Prepare state for strategy
+            // Convert UUID to base58 for shorter clientOrderId (Binance limit is 36 chars)
+            $basketIdShort = $basket->getId()->toBase58();
+
             $state = [
-                'basket_id' => $basket->getId(),
+                'basket_id' => $basketIdShort,
                 'available_quote_balance' => $quoteBalance,
                 'available_base_balance' => $baseBalance,
                 'position_base_qty' => $positionQty,
@@ -162,12 +195,46 @@ class Orchestrator
                 'buys' => count($desiredOrders['buys']),
                 'sells' => count($desiredOrders['sells']),
                 'meta' => $desiredOrders['meta'],
+                'buy_orders' => array_map(fn($o) => [
+                    'clientId' => $o['clientId'],
+                    'price' => $o['price'],
+                    'qty' => $o['qty'],
+                ], $desiredOrders['buys']),
+                'current_price' => $currentPrice,
+                'quote_balance' => $quoteBalance,
             ]);
 
             // Check reanchor suggestion
             if ($desiredOrders['meta']['reanchor_suggested'] ?? false) {
                 $this->logger->warning('Reanchor suggested', [
                     'basket_id' => $basket->getId(),
+                    'current_price' => $currentPrice,
+                    'old_anchor' => $basket->getAnchorPrice(),
+                ]);
+
+                // Auto-reanchor: Update anchor price to current price
+                $basket->setAnchorPrice((string)$currentPrice);
+
+                // Update config JSONB with new anchor
+                $basketConfig = $basket->getConfig();
+                $basketConfig['anchor_price_P0'] = $currentPrice;
+                $basket->setConfig($basketConfig);
+                $this->basketRepository->save($basket);
+
+                // Update local config for strategy recomputation
+                $config['anchor_price_P0'] = $currentPrice;
+
+                $this->logger->info('Basket reanchored', [
+                    'basket_id' => $basket->getId(),
+                    'new_anchor' => $currentPrice,
+                ]);
+
+                // Recompute desired orders with new anchor
+                $desiredOrders = $this->strategy->computeDesiredOrders($config, $state, $market);
+                $this->logger->info('Orders recomputed after reanchor', [
+                    'basket_id' => $basket->getId(),
+                    'buys' => count($desiredOrders['buys']),
+                    'sells' => count($desiredOrders['sells']),
                 ]);
             }
 
@@ -176,18 +243,58 @@ class Orchestrator
             /** @var array<int, array{clientOrderId: string, price: float|string, origQty: float|string, status: string}> $openOrders */
             $reconcileResult = $this->reconciler->reconcile($allDesired, $openOrders);
 
-            // Step 5: Execute
+            $this->logger->info('Reconciliation result', [
+                'basket_id' => $basket->getId(),
+                'to_cancel' => count($reconcileResult['to_cancel']),
+                'to_create' => count($reconcileResult['to_create']),
+                'orders_to_create' => array_map(fn($o) => [
+                    'clientId' => $o['clientId'],
+                    'price' => $o['price'],
+                    'qty' => $o['qty'],
+                ], $reconcileResult['to_create']),
+            ]);
+
+            // Step 5: Execute (only if system is running)
+            if ($this->systemStatus->isStopped()) {
+                $this->logger->warning('System is STOPPED - skipping order execution', [
+                    'basket_id' => $basket->getId(),
+                    'system_status' => $this->systemStatus->getStatus(),
+                ]);
+                return;
+            }
+
             $this->executor->executeReconciliation($symbol, $reconcileResult, $basket);
         } catch (BinanceException $e) {
-            $this->logger->error('Binance API error processing basket', [
+            $this->logger->error(sprintf(
+                'Binance API error processing basket %s: %s (Code: %d) at %s:%d',
+                $basket->getId(),
+                $e->getMessage(),
+                $e->getBinanceCode(),
+                $e->getFile(),
+                $e->getLine()
+            ), [
                 'basket_id' => $basket->getId(),
                 'error' => $e->getMessage(),
                 'binance_code' => $e->getBinanceCode(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
             ]);
         } catch (\Throwable $e) {
-            $this->logger->error('Error processing basket', [
+            $this->logger->error(sprintf(
+                'Error processing basket %s: %s (%s) at %s:%d',
+                $basket->getId(),
+                $e->getMessage(),
+                get_class($e),
+                $e->getFile(),
+                $e->getLine()
+            ), [
                 'basket_id' => $basket->getId(),
                 'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
