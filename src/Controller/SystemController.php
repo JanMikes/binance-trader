@@ -174,7 +174,42 @@ class SystemController extends AbstractController
                 'basket_id' => $basket->getId(),
                 'buys' => count($desiredOrders['buys']),
                 'sells' => count($desiredOrders['sells']),
+                'reanchor_suggested' => $desiredOrders['meta']['reanchor_suggested'] ?? false,
             ]);
+
+            // Check reanchor suggestion
+            if ($desiredOrders['meta']['reanchor_suggested'] ?? false) {
+                $this->logger->warning('Manual cycle - reanchor suggested', [
+                    'basket_id' => $basket->getId(),
+                    'current_price' => $currentPrice,
+                    'old_anchor' => $basket->getAnchorPrice(),
+                ]);
+
+                // Auto-reanchor: Update anchor price to current price
+                $basket->setAnchorPrice((string)$currentPrice);
+
+                // Update config JSONB with new anchor
+                $basketConfig = $basket->getConfig();
+                $basketConfig['anchor_price_P0'] = $currentPrice;
+                $basket->setConfig($basketConfig);
+                $this->basketRepository->save($basket);
+
+                // Update local config for strategy recomputation
+                $config['anchor_price_P0'] = $currentPrice;
+
+                $this->logger->info('Manual cycle - basket reanchored', [
+                    'basket_id' => $basket->getId(),
+                    'new_anchor' => $currentPrice,
+                ]);
+
+                // Recompute desired orders with new anchor
+                $desiredOrders = $this->strategy->computeDesiredOrders($config, $state, $market);
+                $this->logger->info('Manual cycle - orders recomputed after reanchor', [
+                    'basket_id' => $basket->getId(),
+                    'buys' => count($desiredOrders['buys']),
+                    'sells' => count($desiredOrders['sells']),
+                ]);
+            }
 
             // Reconcile
             $allDesired = array_merge($desiredOrders['buys'], $desiredOrders['sells']);

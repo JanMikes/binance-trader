@@ -118,9 +118,9 @@ class GridStrategy implements StrategyInterface
         }
 
         // Step 6: Check reanchor suggestion
-        // Only suggest reanchor if no position AND no BUY orders
-        $reanchorSuggested = count($buys) === 0 && count($sells) === 0
-            && $this->shouldReanchor($positionBaseQty, $config, $state);
+        // Reanchor when there are no open BUY orders
+        // This resets the grid to current price when all buy levels are filled or no orders exist
+        $reanchorSuggested = count($buys) === 0;
 
         return [
             'buys' => $buys,
@@ -345,36 +345,6 @@ class GridStrategy implements StrategyInterface
         }
 
         return $sells;
-    }
-
-    /**
-     * Check if reanchor is suggested
-     * @param array<string, mixed> $config
-     * @param array<string, mixed> $state
-     */
-    private function shouldReanchor(float $positionQty, array $config, array $state): bool
-    {
-        // Position is closed
-        if ($positionQty == 0) {
-            return true;
-        }
-
-        // Close ratio threshold
-        $closeRatio = (float)($config['reanchor_rules']['close_ratio'] ?? 0.7);
-        // TODO: Calculate actual close ratio from fills
-
-        // Time TTL
-        $ttl = (int)($config['reanchor_rules']['time_TTL_s'] ?? 86400);
-        $basketCreatedAt = $state['basket_created_at'] ?? null;
-
-        if ($basketCreatedAt instanceof \DateTimeImmutable) {
-            $age = time() - $basketCreatedAt->getTimestamp();
-            if ($age > $ttl) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

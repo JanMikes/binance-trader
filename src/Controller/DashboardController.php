@@ -9,6 +9,7 @@ use App\Repository\OrderRepository;
 use App\Service\Binance\BinanceApiClient;
 use App\Service\SystemStatusService;
 use App\Service\Trading\PositionCalculator;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -20,13 +21,17 @@ class DashboardController extends AbstractController
         private readonly OrderRepository $orderRepository,
         private readonly BinanceApiClient $binanceApi,
         private readonly PositionCalculator $positionCalculator,
-        private readonly SystemStatusService $systemStatus
+        private readonly SystemStatusService $systemStatus,
+        private readonly EntityManagerInterface $entityManager
     ) {
     }
 
     #[Route('/', name: 'dashboard')]
     public function index(): Response
     {
+        // Clear entity manager to ensure fresh data (important after emergency close)
+        $this->entityManager->clear();
+
         $basket = $this->basketRepository->findActiveBasket();
 
         if ($basket === null) {
@@ -40,7 +45,7 @@ class DashboardController extends AbstractController
             $currentPrice = 0.0;
         }
 
-        // Get open orders
+        // Get open orders (fresh from database)
         $openOrders = $this->orderRepository->findOpenOrdersByBasket($basket);
 
         // Get recent filled orders

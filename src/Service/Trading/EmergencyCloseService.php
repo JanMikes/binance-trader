@@ -128,11 +128,10 @@ class EmergencyCloseService
                 }
             }
 
-            // Step 4: Mark basket as closed
-            $basket->setStatus('emergency_closed');
-            $basket->setClosedAt(new \DateTimeImmutable());
-            $this->basketRepository->save($basket, false);
-
+            // Step 4: Flush all changes to database before committing transaction
+            // Note: We do NOT mark the basket as closed - just cancel orders
+            // The basket remains active so trading can continue
+            $this->entityManager->flush();
             $this->entityManager->commit();
 
             $message = sprintf(
